@@ -1,6 +1,23 @@
 "use client";
 
 import { useState } from "react";
+import { IBM_Plex_Mono, Inter } from "next/font/google";
+import {
+    FaCloudArrowUp,
+    FaEnvelope,
+    FaPhone,
+    FaLinkedin,
+    FaLocationDot,
+    FaBuilding,
+    FaGraduationCap,
+    FaCertificate,
+    FaTrophy,
+    FaChevronDown,
+    FaChevronUp,
+} from "react-icons/fa6";
+
+const mono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-mono" });
+const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"], variable: "--font-inter" });
 
 async function loadPdfjs() {
     const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
@@ -80,7 +97,10 @@ function groupIntoLines(chunks: RawChunk[]): string[] {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
     return (
         <div className="mb-2">
-            <h3 className="text-xs font-semibold tracking-widest uppercase text-slate-400 mb-3 pb-2 border-b border-slate-100">
+            <h3
+                className="text-xs font-semibold tracking-widest uppercase text-[#8A93A3] mb-4 pb-2 border-b border-[#232833]"
+                style={{ fontFamily: "var(--font-mono)" }}
+            >
                 {title}
             </h3>
             {children}
@@ -88,25 +108,40 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     );
 }
 
-function Field({ label, value }: { label: string; value: string | null }) {
+function Field({
+    label,
+    value,
+    icon,
+}: {
+    label: string;
+    value: string | null;
+    icon?: React.ReactNode;
+}) {
     return (
         <div className="mb-3">
-            <p className="text-xs text-slate-400 mb-0.5">{label}</p>
-            <p className="text-sm text-slate-800 font-medium">
-                {value || <span className="text-slate-300 font-normal italic">Not found</span>}
+            <p
+                className="text-[11px] tracking-wide uppercase text-[#8A93A3] mb-1"
+                style={{ fontFamily: "var(--font-mono)" }}
+            >
+                {label}
+            </p>
+            <p className="text-sm text-[#E7E9EE] font-medium flex items-center gap-2">
+                {icon && <span className="text-[#58A6FF] text-xs">{icon}</span>}
+                {value || <span className="text-[#4B5261] font-normal italic">not found</span>}
             </p>
         </div>
     );
 }
 
 function TagList({ items }: { items: string[] }) {
-    if (!items?.length) return <p className="text-sm text-slate-300 italic">None found</p>;
+    if (!items?.length)
+        return <p className="text-sm text-[#4B5261] italic">none found</p>;
     return (
         <div className="flex flex-wrap gap-2">
             {items.map((item, i) => (
                 <span
                     key={i}
-                    className="bg-indigo-50 text-indigo-700 text-xs px-3 py-1 rounded-full font-medium"
+                    className="bg-[#3FB950]/10 text-[#3FB950] border border-[#3FB950]/20 text-xs px-3 py-1 rounded-full font-medium"
                 >
                     {item}
                 </span>
@@ -123,6 +158,9 @@ export default function ResumeParserPage() {
     const [showRaw, setShowRaw] = useState(false);
     const [rawBlue, setRawBlue] = useState("");
     const [rawWhite, setRawWhite] = useState("");
+    const [logLines, setLogLines] = useState<string[]>([]);
+
+    const pushLog = (line: string) => setLogLines((prev) => [...prev, line]);
 
     const handleUpload = async () => {
         if (!file) {
@@ -134,10 +172,13 @@ export default function ResumeParserPage() {
             setLoading(true);
             setError("");
             setProfile(null);
-        
+            setLogLines([`$ ./parse ${file.name}`]);
+
             const pdfjsLib = await loadPdfjs();
             const arrayBuffer = await file.arrayBuffer();
             const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+            pushLog(`> reading ${pdf.numPages} page${pdf.numPages > 1 ? "s" : ""}...`);
 
             const blueChunks: RawChunk[] = [];
             const whiteChunks: RawChunk[] = [];
@@ -164,11 +205,15 @@ export default function ResumeParserPage() {
                 }
             }
 
+            pushLog("> splitting sidebar / main columns...");
+
             const blueLines = groupIntoLines(blueChunks);
             const whiteLines = groupIntoLines(whiteChunks);
 
             setRawBlue(blueLines.join("\n"));
             setRawWhite(whiteLines.join("\n"));
+
+            pushLog("> extracting fields (no llm call)...");
 
             const response = await fetch("/api/resume-parser", {
                 method: "POST",
@@ -183,281 +228,426 @@ export default function ResumeParserPage() {
             }
 
             setProfile(data.profile);
+            pushLog("> done — 0 tokens spent ✓");
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : "Something went wrong");
+            const message = err instanceof Error ? err.message : "Something went wrong";
+            setError(message);
+            pushLog(`> error: ${message}`);
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 font-sans">
-            <div className="bg-white border-b border-slate-200 px-6 py-5">
-                <div className="max-w-4xl mx-auto">
-                    <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-                        Resume Parser without using AI Tokens
-                    </h1>
-                    <p className="text-sm text-slate-500 mt-0.5">
-                        Upload a LinkedIn PDF to extract structured profile data
-                    </p>
+        <div
+            className={`${mono.variable} ${inter.variable} relative w-full min-h-screen bg-[#0A0C10] text-[#E7E9EE] overflow-hidden`}
+            style={{ fontFamily: "var(--font-inter)" }}
+        >
+            {/* Ambient grid backdrop */}
+            <div
+                className="pointer-events-none fixed inset-0 opacity-[0.06]"
+                style={{
+                    backgroundImage:
+                        "linear-gradient(#8A93A3 1px, transparent 1px), linear-gradient(90deg, #8A93A3 1px, transparent 1px)",
+                    backgroundSize: "42px 42px",
+                }}
+            />
+            <div
+                className="pointer-events-none fixed -top-40 right-0 w-[36rem] h-[36rem] rounded-full opacity-20 blur-3xl"
+                style={{ background: "radial-gradient(circle, #3FB950 0%, transparent 70%)" }}
+            />
+
+            {/* Nav */}
+            <div className="relative z-10 w-full border-b border-[#1E222B]">
+                <div className="w-11/12 max-w-5xl mx-auto flex flex-row items-center justify-between py-5">
+                    <span
+                        className="text-sm font-semibold text-[#F3F5F8]"
+                        style={{ fontFamily: "var(--font-mono)" }}
+                    >
+                        resume<span className="text-[#3FB950]">://</span>parser
+                    </span>
+                    <span
+                        className="hidden sm:flex items-center gap-2 rounded-full border border-[#232833] bg-[#12151C] px-3 py-1.5 text-xs text-[#8A93A3]"
+                        style={{ fontFamily: "var(--font-mono)" }}
+                    >
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#3FB950]" />
+                        runs entirely in your browser
+                    </span>
                 </div>
             </div>
 
-            <div className="max-w-4xl mx-auto px-6 py-8">
-                {/* Upload Card */}
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-8">
-                    <div
-                        className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
-                            file ? "border-indigo-300 bg-indigo-50" : "border-slate-200 hover:border-slate-300"
-                        }`}
-                    >
-                        <input
-                            type="file"
-                            accept=".pdf"
-                            id="file-upload"
-                            onChange={(e) => setFile(e.target.files?.[0] || null)}
-                            className="hidden"
-                        />
-                        <label htmlFor="file-upload" className="cursor-pointer">
-                            <div className="text-3xl mb-2">📄</div>
-                            {file ? (
-                                <>
-                                    <p className="text-sm font-semibold text-indigo-700">{file.name}</p>
-                                    <p className="text-xs text-slate-400 mt-1">
-                                        {(file.size / 1024).toFixed(1)} KB · Click to change
-                                    </p>
-                                </>
-                            ) : (
-                                <>
-                                    <p className="text-sm font-medium text-slate-600">Click to select a PDF</p>
-                                    <p className="text-xs text-slate-400 mt-1">
-                                        LinkedIn resume export recommended
-                                    </p>
-                                </>
-                            )}
-                        </label>
+            {/* Hero */}
+            <section className="relative z-10 w-11/12 max-w-5xl mx-auto pt-16 pb-14">
+                <div
+                    className="w-fit rounded-full px-4 py-1.5 border border-[#232833] bg-[#12151C] text-[#3FB950] text-xs tracking-widest uppercase mb-6"
+                    style={{ fontFamily: "var(--font-mono)" }}
+                >
+                    client-side · zero ai tokens
+                </div>
+                <h1
+                    className="text-3xl md:text-5xl font-bold leading-[1.1] text-[#F3F5F8] max-w-2xl"
+                    style={{ fontFamily: "var(--font-mono)" }}
+                >
+                    Parse a resume.
+                    <br />
+                    Not a token budget.
+                </h1>
+                <p className="text-base md:text-lg text-[#A8B0BE] max-w-xl mt-5 leading-relaxed">
+                    Drop in a LinkedIn PDF export. The layout is split into columns, grouped
+                    into lines, and mapped into fields — name, contact, skills, experience,
+                    education — with plain heuristics. No model in the loop.
+                </p>
+            </section>
+
+            {/* Terminal upload window */}
+            <section className="relative z-10 w-11/12 max-w-5xl mx-auto pb-16">
+                <div className="w-full rounded-lg border border-[#232833] bg-[#12151C] shadow-2xl shadow-black/50 overflow-hidden">
+                    <div className="flex flex-row items-center gap-2 px-4 py-3 border-b border-[#232833] bg-[#181C24]">
+                        <span className="w-3 h-3 rounded-full bg-[#F85149]" />
+                        <span className="w-3 h-3 rounded-full bg-[#E3B341]" />
+                        <span className="w-3 h-3 rounded-full bg-[#3FB950]" />
+                        <span
+                            className="ml-3 text-xs text-[#8A93A3]"
+                            style={{ fontFamily: "var(--font-mono)" }}
+                        >
+                            resume-parser — bash
+                        </span>
                     </div>
 
-                    <button
-                        onClick={handleUpload}
-                        disabled={loading || !file}
-                        className="mt-4 w-full bg-indigo-600 text-white py-3 rounded-xl font-semibold text-sm hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-                    >
-                        {loading ? (
-                            <>
-                                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                                    <circle
-                                        className="opacity-25"
-                                        cx="12"
-                                        cy="12"
-                                        r="10"
-                                        stroke="currentColor"
-                                        strokeWidth="4"
-                                    />
-                                    <path
-                                        className="opacity-75"
-                                        fill="currentColor"
-                                        d="M4 12a8 8 0 018-8v8z"
-                                    />
-                                </svg>
-                                Parsing resume...
-                            </>
-                        ) : (
-                            "Extract Profile"
-                        )}
-                    </button>
-
-                    {error && (
-                        <div className="mt-3 bg-red-50 border border-red-100 text-red-600 text-sm rounded-lg px-4 py-3">
-                            {error}
+                    <div className="p-6 flex flex-col gap-5">
+                        <div
+                            className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
+                                file
+                                    ? "border-[#3FB950]/40 bg-[#3FB950]/5"
+                                    : "border-[#232833] hover:border-[#2F3543]"
+                            }`}
+                        >
+                            <input
+                                type="file"
+                                accept=".pdf"
+                                id="file-upload"
+                                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                                className="hidden"
+                            />
+                            <label htmlFor="file-upload" className="cursor-pointer flex flex-col items-center gap-2">
+                                <FaCloudArrowUp className="text-2xl text-[#8A93A3]" />
+                                {file ? (
+                                    <>
+                                        <p className="text-sm font-semibold text-[#3FB950]">{file.name}</p>
+                                        <p
+                                            className="text-xs text-[#8A93A3]"
+                                            style={{ fontFamily: "var(--font-mono)" }}
+                                        >
+                                            {(file.size / 1024).toFixed(1)} KB · click to change
+                                        </p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <p className="text-sm font-medium text-[#E7E9EE]">
+                                            Click to select a PDF
+                                        </p>
+                                        <p
+                                            className="text-xs text-[#8A93A3]"
+                                            style={{ fontFamily: "var(--font-mono)" }}
+                                        >
+                                            LinkedIn resume export recommended
+                                        </p>
+                                    </>
+                                )}
+                            </label>
                         </div>
-                    )}
-                </div>
 
-                {/* Results */}
-                {profile && (
-                    <div className="space-y-6">
-                        {/* Identity Card */}
-                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-                            <div className="flex items-start justify-between mb-6">
-                                <div>
-                                    <h2 className="text-xl font-bold text-slate-900">
-                                        {profile.name || "Unknown"}
-                                    </h2>
-                                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
-                                        {profile.location && (
-                                            <p className="text-sm text-slate-500">📍 {profile.location}</p>
-                                        )}
-                                        {profile.company && (
-                                            <p className="text-sm text-slate-500">🌐 {profile.company}</p>
-                                        )}
-                                    </div>
-                                </div>
-                                <span className="bg-green-100 text-green-700 text-xs font-semibold px-3 py-1 rounded-full shrink-0">
-                                    Parsed
-                                </span>
-                            </div>
-
-                            <div className="grid sm:grid-cols-3 gap-4">
-                                <Field label="Email" value={profile.email} />
-                                <Field label="Phone" value={profile.phone} />
-                                <Field label="LinkedIn" value={profile.linkedIn} />
-                            </div>
-
-                            {profile.summary && (
-                                <div className="mt-4 pt-4 border-t border-slate-100">
-                                    <p className="text-xs text-slate-400 mb-1.5">Summary</p>
-                                    <p className="text-sm text-slate-700 leading-relaxed">{profile.summary}</p>
-                                </div>
+                        <button
+                            onClick={handleUpload}
+                            disabled={loading || !file}
+                            className="w-full bg-[#E7E9EE] text-[#0A0C10] py-3 rounded-md font-semibold text-sm hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                            style={{ fontFamily: "var(--font-mono)" }}
+                        >
+                            {loading ? (
+                                <>
+                                    <span className="w-2 h-2 rounded-full bg-[#0A0C10] animate-pulse" />
+                                    parsing...
+                                </>
+                            ) : (
+                                "$ ./extract-profile"
                             )}
+                        </button>
+
+                        {logLines.length > 0 && (
+                            <div
+                                className="rounded-md bg-[#0D0F14] border border-[#232833] p-4 text-xs leading-loose text-[#8A93A3] overflow-x-auto"
+                                style={{ fontFamily: "var(--font-mono)" }}
+                            >
+                                {logLines.map((line, i) => (
+                                    <p
+                                        key={i}
+                                        className={
+                                            line.startsWith("$")
+                                                ? "text-[#F3F5F8]"
+                                                : line.includes("error")
+                                                ? "text-[#F85149]"
+                                                : line.includes("done")
+                                                ? "text-[#3FB950]"
+                                                : "text-[#58A6FF]"
+                                        }
+                                    >
+                                        {line}
+                                    </p>
+                                ))}
+                            </div>
+                        )}
+
+                        {error && (
+                            <div className="bg-[#F85149]/10 border border-[#F85149]/30 text-[#F85149] text-sm rounded-lg px-4 py-3">
+                                {error}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </section>
+
+            {/* Results */}
+            {profile && (
+                <section className="relative z-10 w-11/12 max-w-5xl mx-auto pb-20 space-y-6">
+                    {/* Identity Card */}
+                    <div className="bg-[#12151C] rounded-2xl border border-[#232833] p-6">
+                        <div className="flex items-start justify-between mb-6 flex-wrap gap-3">
+                            <div>
+                                <h2
+                                    className="text-xl font-bold text-[#F3F5F8]"
+                                    style={{ fontFamily: "var(--font-mono)" }}
+                                >
+                                    {profile.name || "Unknown"}
+                                </h2>
+                                <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+                                    {profile.location && (
+                                        <p className="text-sm text-[#A8B0BE] flex items-center gap-1.5">
+                                            <FaLocationDot className="text-[#8A93A3] text-xs" /> {profile.location}
+                                        </p>
+                                    )}
+                                    {profile.company && (
+                                        <p className="text-sm text-[#A8B0BE] flex items-center gap-1.5">
+                                            <FaBuilding className="text-[#8A93A3] text-xs" /> {profile.company}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                            <span
+                                className="bg-[#3FB950]/10 text-[#3FB950] border border-[#3FB950]/20 text-xs font-semibold px-3 py-1 rounded-full shrink-0"
+                                style={{ fontFamily: "var(--font-mono)" }}
+                            >
+                                parsed
+                            </span>
                         </div>
 
-                        {/* Skills, Certs, Awards */}
-                        <div className="grid sm:grid-cols-3 gap-6">
-                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-                                <Section title="Top Skills">
-                                    <TagList items={profile.topSkills} />
-                                </Section>
-                            </div>
-
-                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-                                <Section title="Certifications">
-                                    <ul className="space-y-1.5">
-                                        {profile.certifications?.length ? (
-                                            profile.certifications.map((c, i) => (
-                                                <li key={i} className="text-sm text-slate-700 flex gap-2">
-                                                    <span className="text-indigo-400 mt-0.5">✓</span>
-                                                    {c}
-                                                </li>
-                                            ))
-                                        ) : (
-                                            <p className="text-sm text-slate-300 italic">None found</p>
-                                        )}
-                                    </ul>
-                                </Section>
-                            </div>
-
-                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-                                <Section title="Honors & Awards">
-                                    <ul className="space-y-1.5">
-                                        {profile.honorsAwards?.length ? (
-                                            profile.honorsAwards.map((a, i) => (
-                                                <li key={i} className="text-sm text-slate-700 flex gap-2">
-                                                    <span className="text-amber-400 mt-0.5">🏆</span>
-                                                    {a}
-                                                </li>
-                                            ))
-                                        ) : (
-                                            <p className="text-sm text-slate-300 italic">None found</p>
-                                        )}
-                                    </ul>
-                                </Section>
-                            </div>
+                        <div className="grid sm:grid-cols-3 gap-4">
+                            <Field label="Email" value={profile.email} icon={<FaEnvelope />} />
+                            <Field label="Phone" value={profile.phone} icon={<FaPhone />} />
+                            <Field label="LinkedIn" value={profile.linkedIn} icon={<FaLinkedin />} />
                         </div>
 
-                        {/* Experience */}
-                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-                            <Section title="Experience">
-                                <div className="space-y-6">
-                                    {profile.experience?.length ? (
-                                        profile.experience.map((exp, i) => (
-                                            <div key={i} className="relative pl-4 border-l-2 border-indigo-100">
-                                                <div className="absolute -left-1.5 top-1 w-2.5 h-2.5 rounded-full bg-indigo-300" />
-                                                <p className="font-semibold text-slate-800 text-sm">
-                                                    {exp.title || (
-                                                        <span className="text-slate-300 italic font-normal">
-                                                            Title not found
-                                                        </span>
-                                                    )}
-                                                </p>
-                                                <p className="text-indigo-600 text-xs font-medium mt-0.5">
-                                                    {exp.company || (
-                                                        <span className="text-slate-300 italic font-normal">
-                                                            Organization not found
-                                                        </span>
-                                                    )}
-                                                </p>
-                                                <p className="text-slate-400 text-xs mt-0.5">
+                        {profile.summary && (
+                            <div className="mt-4 pt-4 border-t border-[#232833]">
+                                <p
+                                    className="text-[11px] tracking-wide uppercase text-[#8A93A3] mb-1.5"
+                                    style={{ fontFamily: "var(--font-mono)" }}
+                                >
+                                    Summary
+                                </p>
+                                <p className="text-sm text-[#A8B0BE] leading-relaxed">{profile.summary}</p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Skills, Certs, Awards */}
+                    <div className="grid sm:grid-cols-3 gap-6">
+                        <div className="bg-[#12151C] rounded-2xl border border-[#232833] p-5">
+                            <Section title="Top Skills">
+                                <TagList items={profile.topSkills} />
+                            </Section>
+                        </div>
+
+                        <div className="bg-[#12151C] rounded-2xl border border-[#232833] p-5">
+                            <Section title="Certifications">
+                                <ul className="space-y-2">
+                                    {profile.certifications?.length ? (
+                                        profile.certifications.map((c, i) => (
+                                            <li key={i} className="text-sm text-[#A8B0BE] flex gap-2">
+                                                <FaCertificate className="text-[#58A6FF] mt-0.5 shrink-0" />
+                                                {c}
+                                            </li>
+                                        ))
+                                    ) : (
+                                        <p className="text-sm text-[#4B5261] italic">none found</p>
+                                    )}
+                                </ul>
+                            </Section>
+                        </div>
+
+                        <div className="bg-[#12151C] rounded-2xl border border-[#232833] p-5">
+                            <Section title="Honors & Awards">
+                                <ul className="space-y-2">
+                                    {profile.honorsAwards?.length ? (
+                                        profile.honorsAwards.map((a, i) => (
+                                            <li key={i} className="text-sm text-[#A8B0BE] flex gap-2">
+                                                <FaTrophy className="text-[#E3B341] mt-0.5 shrink-0" />
+                                                {a}
+                                            </li>
+                                        ))
+                                    ) : (
+                                        <p className="text-sm text-[#4B5261] italic">none found</p>
+                                    )}
+                                </ul>
+                            </Section>
+                        </div>
+                    </div>
+
+                    {/* Experience — git-log style timeline */}
+                    <div className="bg-[#12151C] rounded-2xl border border-[#232833] p-6">
+                        <Section title="Experience">
+                            <div className="relative flex flex-col">
+                                {profile.experience?.length ? (
+                                    profile.experience.map((exp, i) => (
+                                        <div key={i} className="relative flex flex-row gap-5 pb-8 last:pb-0">
+                                            <div className="flex flex-col items-center">
+                                                <span className="w-2.5 h-2.5 rounded-full bg-[#3FB950] mt-1.5 shrink-0" />
+                                                {i !== profile.experience.length - 1 && (
+                                                    <span className="w-px flex-1 bg-[#232833] mt-1" />
+                                                )}
+                                            </div>
+                                            <div className="flex flex-col gap-1 pb-1">
+                                                <p
+                                                    className="text-xs text-[#E3B341]"
+                                                    style={{ fontFamily: "var(--font-mono)" }}
+                                                >
                                                     {exp.duration}
                                                     {exp.location ? ` · ${exp.location}` : ""}
                                                 </p>
+                                                <p className="text-sm font-semibold text-[#F3F5F8]">
+                                                    {exp.title || (
+                                                        <span className="text-[#4B5261] italic font-normal">
+                                                            title not found
+                                                        </span>
+                                                    )}
+                                                </p>
+                                                <p className="text-xs font-medium text-[#58A6FF]">
+                                                    {exp.company || (
+                                                        <span className="text-[#4B5261] italic font-normal">
+                                                            organization not found
+                                                        </span>
+                                                    )}
+                                                </p>
                                                 {exp.description && (
-                                                    <p className="text-slate-600 text-sm mt-2 leading-relaxed">
+                                                    <p className="text-sm text-[#A8B0BE] mt-1.5 leading-relaxed">
                                                         {exp.description}
                                                     </p>
                                                 )}
                                             </div>
-                                        ))
-                                    ) : (
-                                        <p className="text-sm text-slate-300 italic">No experience found</p>
-                                    )}
-                                </div>
-                            </Section>
-                        </div>
-
-                        {/* Education */}
-                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-                            <Section title="Education">
-                                <div className="space-y-4">
-                                    {profile.education?.length ? (
-                                        profile.education.map((edu, i) => (
-                                            <div key={i} className="flex gap-4 items-start">
-                                                <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-base shrink-0">
-                                                    🎓
-                                                </div>
-                                                <div>
-                                                    <p className="font-semibold text-slate-800 text-sm">
-                                                        {edu.degree || (
-                                                            <span className="text-slate-300 italic font-normal">
-                                                                Degree not found
-                                                            </span>
-                                                        )}
-                                                    </p>
-                                                    <p className="text-slate-500 text-xs mt-0.5">{edu.institution}</p>
-                                                    <p className="text-slate-400 text-xs mt-0.5">{edu.duration}</p>
-                                                </div>
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <p className="text-sm text-slate-300 italic">No education found</p>
-                                    )}
-                                </div>
-                            </Section>
-                        </div>
-
-                        {/* Raw Text Toggle */}
-                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                            <button
-                                onClick={() => setShowRaw((v) => !v)}
-                                className="w-full flex items-center justify-between px-6 py-4 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
-                            >
-                                <span>Raw Extracted Columns</span>
-                                <span className="text-slate-400 text-xs">{showRaw ? "▲ Hide" : "▼ Show"}</span>
-                            </button>
-                            {showRaw && (
-                                <div className="px-6 pb-6 grid sm:grid-cols-2 gap-4">
-                                    <div>
-                                        <p className="text-xs font-medium text-slate-400 mb-1">
-                                            Sidebar (blue) · {rawBlue.split("\n").filter(Boolean).length} lines
-                                        </p>
-                                        <pre className="bg-slate-50 rounded-xl p-4 text-xs text-slate-600 overflow-auto max-h-80 whitespace-pre-wrap leading-relaxed">
-                                            {rawBlue || "No sidebar content detected."}
-                                        </pre>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs font-medium text-slate-400 mb-1">
-                                            Main (white) · {rawWhite.split("\n").filter(Boolean).length} lines
-                                        </p>
-                                        <pre className="bg-slate-50 rounded-xl p-4 text-xs text-slate-600 overflow-auto max-h-80 whitespace-pre-wrap leading-relaxed">
-                                            {rawWhite || "No main content detected."}
-                                        </pre>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <p className="text-sm text-[#4B5261] italic">no experience found</p>
+                                )}
+                            </div>
+                        </Section>
                     </div>
-                )}
-            </div>
+
+                    {/* Education */}
+                    <div className="bg-[#12151C] rounded-2xl border border-[#232833] p-6">
+                        <Section title="Education">
+                            <div className="space-y-4">
+                                {profile.education?.length ? (
+                                    profile.education.map((edu, i) => (
+                                        <div key={i} className="flex gap-4 items-start">
+                                            <div className="w-9 h-9 rounded-lg bg-[#181C24] border border-[#232833] flex items-center justify-center shrink-0">
+                                                <FaGraduationCap className="text-[#58A6FF]" />
+                                            </div>
+                                            <div>
+                                                <p className="font-semibold text-[#F3F5F8] text-sm">
+                                                    {edu.degree || (
+                                                        <span className="text-[#4B5261] italic font-normal">
+                                                            degree not found
+                                                        </span>
+                                                    )}
+                                                </p>
+                                                <p className="text-[#A8B0BE] text-xs mt-0.5">{edu.institution}</p>
+                                                <p
+                                                    className="text-[#8A93A3] text-xs mt-0.5"
+                                                    style={{ fontFamily: "var(--font-mono)" }}
+                                                >
+                                                    {edu.duration}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <p className="text-sm text-[#4B5261] italic">no education found</p>
+                                )}
+                            </div>
+                        </Section>
+                    </div>
+
+                    {/* Raw Text Toggle */}
+                    <div className="bg-[#12151C] rounded-2xl border border-[#232833] overflow-hidden">
+                        <button
+                            onClick={() => setShowRaw((v) => !v)}
+                            className="w-full flex items-center justify-between px-6 py-4 text-sm font-medium text-[#A8B0BE] hover:bg-[#181C24] transition-colors"
+                            style={{ fontFamily: "var(--font-mono)" }}
+                        >
+                            <span>raw extracted columns</span>
+                            {showRaw ? <FaChevronUp className="text-xs" /> : <FaChevronDown className="text-xs" />}
+                        </button>
+                        {showRaw && (
+                            <div className="px-6 pb-6 grid sm:grid-cols-2 gap-4">
+                                <div>
+                                    <p
+                                        className="text-[11px] tracking-wide uppercase text-[#8A93A3] mb-1.5"
+                                        style={{ fontFamily: "var(--font-mono)" }}
+                                    >
+                                        sidebar (blue) · {rawBlue.split("\n").filter(Boolean).length} lines
+                                    </p>
+                                    <pre
+                                        className="bg-[#0D0F14] border border-[#232833] rounded-xl p-4 text-xs text-[#A8B0BE] overflow-auto max-h-80 whitespace-pre-wrap leading-relaxed"
+                                        style={{ fontFamily: "var(--font-mono)" }}
+                                    >
+                                        {rawBlue || "no sidebar content detected."}
+                                    </pre>
+                                </div>
+                                <div>
+                                    <p
+                                        className="text-[11px] tracking-wide uppercase text-[#8A93A3] mb-1.5"
+                                        style={{ fontFamily: "var(--font-mono)" }}
+                                    >
+                                        main (white) · {rawWhite.split("\n").filter(Boolean).length} lines
+                                    </p>
+                                    <pre
+                                        className="bg-[#0D0F14] border border-[#232833] rounded-xl p-4 text-xs text-[#A8B0BE] overflow-auto max-h-80 whitespace-pre-wrap leading-relaxed"
+                                        style={{ fontFamily: "var(--font-mono)" }}
+                                    >
+                                        {rawWhite || "no main content detected."}
+                                    </pre>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </section>
+            )}
+
+            {/* Footer */}
+            <footer className="relative w-full overflow-hidden bg-black border-t border-[#1E222B] py-20">
+                <p
+                    className="text-center text-xs tracking-widest uppercase text-[#3FB950] mb-4"
+                    style={{ fontFamily: "var(--font-mono)" }}
+                >
+                    // 0 tokens spent
+                </p>
+                <h1
+                    className="pointer-events-none select-none mx-auto text-center font-bold leading-none text-transparent bg-clip-text bg-gradient-to-b from-[#8c8c8c] via-[#2b2b2b] to-[#010101] opacity-90 text-5xl sm:text-[7rem] md:text-[9rem] lg:text-[10rem]"
+                    style={{ fontFamily: "var(--font-mono)" }}
+                >
+                    THE PARSER
+                </h1>
+            </footer>
         </div>
     );
 }

@@ -242,8 +242,8 @@ export default function ResumeParserPage() {
     return (
         <React.Fragment>
             <Head>
-                <link rel="icon" href="/favicon.ico" type="ico" sizes="70x70" />
-                <title>Resume Parser — Turn a LinkedIn PDF into Structured JSON, No AI Tokens</title>
+                <link rel="icon" href="/favicon.png" type="png" sizes="70x70" />
+                <title>Upgrd — Turn a LinkedIn PDF into Structured JSON, No AI Tokens</title>
                 <meta
                     name="description"
                     content="Drop in a LinkedIn PDF export and get back structured profile data — name, contact, skills, experience, education — parsed entirely client-side with layout heuristics. No LLM calls, no tokens spent."
@@ -292,7 +292,7 @@ export default function ResumeParserPage() {
                             className="text-sm font-semibold text-[#F3F5F8]"
                             style={{ fontFamily: "var(--font-mono)" }}
                         >
-                            resume<span className="text-[#3FB950]">://</span>parser
+                            upgrd<span className="text-[#3FB950]">://</span>resume-parser
                         </span>
                         <span
                             className="hidden sm:flex items-center gap-2 rounded-full border border-[#232833] bg-[#12151C] px-3 py-1.5 text-xs text-[#8A93A3]"
